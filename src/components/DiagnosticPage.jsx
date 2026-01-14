@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 
 // --- CONFIGURAÇÃO DA IA ---
-const API_KEY = import.meta.env.VITE_GEMINI_API_KEY; 
+const apiKey = import.meta.env.VITE_GEMINI_API_KEY; 
 const genAI = new GoogleAI.GoogleGenerativeAI(API_KEY);
 
 // --- CONFIGURAÇÃO DO SUPABASE ---
