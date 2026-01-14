@@ -1,3 +1,5 @@
+
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as GoogleAI from "@google/generative-ai";
