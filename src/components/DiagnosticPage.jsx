@@ -22,7 +22,7 @@ import {
 
 // --- CONFIGURAÇÃO DA IA ---
 const apiKey = import.meta.env.VITE_GEMINI_API_KEY; 
-const genAI = new GoogleAI.GoogleGenerativeAI(API_KEY);
+const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
 
 // --- CONFIGURAÇÃO DO SUPABASE ---
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
