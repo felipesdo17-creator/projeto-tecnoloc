@@ -1,21 +1,21 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 
-// Importando os arquivos que existem na sua pasta src
+// 1. A Home está na raiz (src/Home.jsx)
 import Home from './Home';
-import DiagnosticPage from './DiagnosticPage';
-import ChecklistPage from './ChecklistPage';
-import ManualsPage from './ManualsPage';
-import DiagnosticHistory from './DiagnosticHistory';
+
+// 2. As outras páginas estão dentro da pasta components
+import DiagnosticPage from './components/DiagnosticPage';
+import ChecklistPage from './components/ChecklistPage';
+import ManualsPage from './components/ManualsPage';
+import DiagnosticHistory from './components/DiagnosticHistory';
 
 function App() {
   return (
     <Router>
       <Routes>
-        {/* Rota Inicial */}
         <Route path="/" element={<Home />} />
         
-        {/* Rotas das Funcionalidades */}
         <Route path="/diagnostico" element={<DiagnosticPage />} />
         <Route path="/checklist" element={<ChecklistPage />} />
         <Route path="/manuais" element={<ManualsPage />} />
