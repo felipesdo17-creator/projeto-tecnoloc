@@ -1,288 +1,417 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { initialTemplates, simulateAIAnalysis } from '../data/checklistStore';
+import { useNavigate } from 'react-router-dom';
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
+import { Label } from "./ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Textarea } from "./ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "./ui/card";
+import { Checkbox } from "./ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
-import { ArrowLeft, Save, CheckSquare, Upload, FileText, Loader2, Plus, Trash2, MessageSquare, Mail, Send } from 'lucide-react';
+import { ClipboardCheck, Search, Loader2, CheckCircle2, Upload, FileText, Send, FileCheck, ArrowLeft } from 'lucide-react';
 
 export default function ChecklistPage() {
-  const [templates, setTemplates] = useState(initialTemplates);
-  const [selectedTemplateId, setSelectedTemplateId] = useState(initialTemplates[0].id);
-  const [answers, setAnswers] = useState({});
-  const [observation, setObservation] = useState("");
+  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState('search');
+  const [equipmentType, setEquipmentType] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+  const [checklists, setChecklists] = useState(null);
+  const [checkedItems, setCheckedItems] = useState({});
   
-  // NOVO: Estados para o E-mail
-  const [emailTo, setEmailTo] = useState("");
+  // Finalização
+  const [showFinalizationForm, setShowFinalizationForm] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [finalizationData, setFinalizationData] = useState({
+    equipment_name: '',
+    patrimonio: '',
+    horimetro: '',
+    technician_name: '',
+    email: ''
+  });
+  
+  // Upload form
+  const [showUploadForm, setShowUploadForm] = useState(false);
+  const [uploadFormData, setUploadFormData] = useState({
+    equipment_type: 'torre',
+    equipment_name: '',
+    brand: '',
+    model: '',
+    description: '',
+    file_name: ''
+  });
 
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadFile, setUploadFile] = useState(null);
-
-  const currentTemplate = templates.find(t => t.id === selectedTemplateId);
-
-  const toggleItem = (itemId) => {
-    setAnswers(prev => ({ ...prev, [itemId]: !prev[itemId] }));
+  // MOCK: Dados simulados (Isso será substituído pelo Supabase depois)
+  const mockChecklistData = {
+    equipment_info: { name: 'Torre MLT6SKD', type: 'torre' },
+    checklists: [
+      {
+        title: 'Motor e Níveis',
+        category: 'preventiva',
+        items: [
+          { description: 'Nível de óleo do motor', critical: true },
+          { description: 'Nível de água do radiador', critical: true },
+          { description: 'Vazamentos de fluidos', critical: true },
+        ]
+      },
+      {
+        title: 'Sistema Elétrico',
+        category: 'funcionamento',
+        items: [
+          { description: 'Bateria e cabos', critical: false },
+          { description: 'Lâmpadas dos refletores', critical: false },
+          { description: 'Painel de controle', critical: true },
+        ]
+      },
+      {
+        title: 'Estrutura',
+        category: 'carenagem',
+        items: [
+          { description: 'Pneus e calibragem', critical: false },
+          { description: 'Patolas de fixação', critical: true },
+          { description: 'Pintura e adesivos', critical: false },
+        ]
+      }
+    ]
   };
 
-  const handleUpload = async () => {
-    if (!uploadFile) return;
-    setIsUploading(true);
-    try {
-      const newTemplate = await simulateAIAnalysis(uploadFile);
-      setTemplates(prev => [...prev, newTemplate]);
-      setUploadFile(null);
-      alert(`Sucesso! O modelo "${newTemplate.name}" foi criado.`);
-    } catch (error) {
-      alert("Erro ao processar arquivo");
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  // --- NOVA FUNÇÃO DE FINALIZAR E ENVIAR ---
-  const handleFinish = () => {
-    // 1. Validação simples
-    if (!emailTo || !emailTo.includes('@')) {
-      alert("Por favor, preencha um e-mail válido para envio.");
+  const handleSearch = async () => {
+    if (!equipmentType) {
+      alert('Selecione o tipo de equipamento');
       return;
     }
 
-    // 2. Inicia o estado de "Enviando..."
-    setIsSending(true);
+    setIsSearching(true);
+    setChecklists(null);
+    setCheckedItems({});
 
-    // 3. Simula o tempo de envio (2 segundos)
+    // Simulação de delay de rede
     setTimeout(() => {
-      console.log("=== ENVIANDO RELATÓRIO ===");
-      console.log("Para:", emailTo);
-      console.log("Equipamento:", currentTemplate.name);
-      console.log("Dados:", answers);
-      console.log("Obs:", observation);
+      setChecklists(mockChecklistData);
+      setIsSearching(false);
+    }, 1000);
+  };
 
-      // 4. Finaliza e avisa
+  const toggleCheckItem = (checklistIdx, itemIdx) => {
+    const key = `${checklistIdx}-${itemIdx}`;
+    setCheckedItems(prev => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
+  };
+
+  const getCategoryColor = (category) => {
+    const colors = {
+      'preventiva': 'bg-yellow-100 text-yellow-800 border-yellow-300',
+      'funcionamento': 'bg-blue-100 text-blue-800 border-blue-300',
+      'limpeza': 'bg-green-100 text-green-800 border-green-300',
+      'pintura': 'bg-purple-100 text-purple-800 border-purple-300',
+      'carenagem': 'bg-indigo-100 text-indigo-800 border-indigo-300'
+    };
+    return colors[category] || 'bg-gray-100 text-gray-800 border-gray-300';
+  };
+
+  const equipmentTypeLabels = {
+    'torre': 'Torre de Iluminação',
+    'gerador': 'Gerador',
+    'maquina_solda': 'Máquina de Solda',
+    'outro': 'Outro'
+  };
+
+  const handleFinalize = async () => {
+    if (!finalizationData.equipment_name || !finalizationData.technician_name) {
+      alert('Preencha os campos obrigatórios');
+      return;
+    }
+
+    setIsSending(true);
+    // Simulação de envio
+    setTimeout(() => {
+      alert(`Checklist finalizado com sucesso!\nEnviado para: ${finalizationData.email}`);
       setIsSending(false);
-      alert(`✅ Sucesso!\n\nO relatório PDF foi gerado e enviado para:\n${emailTo}\n\nUma cópia foi salva no histórico.`);
-      
-      // Opcional: Limpar formulário após envio
-      // setAnswers({});
-      // setObservation("");
-    }, 2000);
+      setShowFinalizationForm(false);
+      navigate('/'); // Volta para a Home
+    }, 1500);
+  };
+
+  const handleUploadSubmit = (e) => {
+    e.preventDefault();
+    alert("Funcionalidade de Upload será conectada ao Supabase em breve!");
+    setShowUploadForm(false);
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 p-6">
-      
-      <div className="max-w-4xl mx-auto mb-6 flex items-center gap-4">
-        <Link to="/">
-          <Button variant="outline" size="icon">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-        </Link>
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Central de Checklists</h1>
-          <p className="text-sm text-slate-500">Tecnoloc / Operacional</p>
+    <div className="min-h-screen bg-slate-50 p-4 md:p-6 font-sans">
+      <div className="max-w-6xl mx-auto">
+        
+        {/* Header */}
+        <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <Button variant="ghost" className="pl-0 hover:bg-transparent mb-2 text-slate-600" onClick={() => navigate('/')}>
+               <ArrowLeft className="w-4 h-4 mr-2" /> Voltar ao Menu
+            </Button>
+            <div className="flex items-center gap-3">
+              <ClipboardCheck className="w-8 h-8 text-orange-600" />
+              <h1 className="text-3xl font-bold text-gray-900">Checklist de Manutenção</h1>
+            </div>
+            <p className="text-gray-600 mt-1">Gerencie e execute inspeções técnicas</p>
+          </div>
         </div>
-      </div>
 
-      <div className="max-w-4xl mx-auto">
-        <Tabs defaultValue="execute" className="w-full">
-          
-          <TabsList className="grid w-full grid-cols-2 mb-8">
-            <TabsTrigger value="execute">Executar Checklist</TabsTrigger>
-            <TabsTrigger value="manage">Gestão de Modelos</TabsTrigger>
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="grid w-full grid-cols-2 mb-8 max-w-md mx-auto md:mx-0">
+            <TabsTrigger value="search">
+              <Search className="w-4 h-4 mr-2" />
+              Realizar Checklist
+            </TabsTrigger>
+            <TabsTrigger value="manage">
+              <Upload className="w-4 h-4 mr-2" />
+              Cadastrar Modelo
+            </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="execute" className="space-y-6">
-            
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg">Selecione o Equipamento</CardTitle>
+          {/* TAB: REALIZAR CHECKLIST */}
+          <TabsContent value="search" className="space-y-8">
+            <Card className="shadow-sm border-slate-200">
+              <CardHeader>
+                <CardTitle>Selecione o Equipamento</CardTitle>
               </CardHeader>
               <CardContent>
-                <select 
-                  className="w-full p-2 border rounded-md bg-white text-slate-900 focus:ring-2 focus:ring-blue-500 outline-none"
-                  value={selectedTemplateId}
-                  onChange={(e) => {
-                    setSelectedTemplateId(e.target.value);
-                    setAnswers({});
-                    setObservation("");
-                  }}
-                >
-                  {templates.map(t => (
-                    <option key={t.id} value={t.id}>{t.name}</option>
-                  ))}
-                </select>
+                <div className="flex flex-col md:flex-row gap-4">
+                  <div className="flex-1">
+                    <Label>Tipo de Equipamento</Label>
+                    <Select value={equipmentType} onValueChange={setEquipmentType}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o tipo..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="torre">Torre de Iluminação</SelectItem>
+                        <SelectItem value="gerador">Gerador</SelectItem>
+                        <SelectItem value="maquina_solda">Máquina de Solda</SelectItem>
+                        <SelectItem value="outro">Outro</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-end">
+                    <Button 
+                      onClick={handleSearch}
+                      disabled={isSearching}
+                      className="w-full md:w-auto bg-orange-600 hover:bg-orange-700 text-white"
+                    >
+                      {isSearching ? (
+                        <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Buscando...</>
+                      ) : (
+                        <><Search className="w-4 h-4 mr-2" /> Iniciar Checklist</>
+                      )}
+                    </Button>
+                  </div>
+                </div>
               </CardContent>
             </Card>
 
-            {currentTemplate && (
-              <div className="space-y-6 fade-in">
-                
-                <Card>
-                  <CardHeader><CardTitle className="text-base text-blue-900">Identificação</CardTitle></CardHeader>
-                  <CardContent className="grid md:grid-cols-3 gap-4">
-                    <div className="space-y-1"><label className="text-sm font-medium">Patrimônio</label><Input placeholder="Ex: TEC-001" /></div>
-                    <div className="space-y-1"><label className="text-sm font-medium">Horímetro</label><Input type="number" placeholder="0000.0" /></div>
-                    <div className="space-y-1"><label className="text-sm font-medium">Técnico</label><Input placeholder="Seu nome" /></div>
+            {checklists && (
+              <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                {/* Info do Equipamento */}
+                <Card className="bg-gradient-to-r from-orange-50 to-white border-l-4 border-l-orange-500 shadow-sm">
+                  <CardContent className="pt-6">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center text-orange-600">
+                        <ClipboardCheck className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-bold text-gray-900">
+                          {checklists.equipment_info.name}
+                        </h3>
+                        <p className="text-gray-600 capitalize">
+                          {equipmentTypeLabels[checklists.equipment_info.type]}
+                        </p>
+                      </div>
+                    </div>
                   </CardContent>
                 </Card>
 
-                {currentTemplate.sections.map((section, idx) => (
-                  <Card key={idx}>
-                    <CardHeader className="bg-slate-100/50 py-3">
-                      <CardTitle className="text-sm font-bold text-slate-700 uppercase tracking-wider">
-                        {section.title}
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="pt-4 grid gap-3">
-                      {section.items.map((item) => (
-                        <div 
-                          key={item.id}
-                          onClick={() => toggleItem(item.id)}
-                          className={`flex items-center p-3 border rounded-lg cursor-pointer transition-all ${
-                            answers[item.id] 
-                              ? 'bg-green-50 border-green-500 shadow-sm' 
-                              : 'bg-white border-slate-200 hover:border-blue-300'
-                          }`}
-                        >
-                          <div className={`w-5 h-5 rounded border mr-3 flex items-center justify-center transition-colors ${
-                            answers[item.id] ? 'bg-green-500 border-green-500' : 'border-slate-300'
-                          }`}>
-                            {answers[item.id] && <CheckSquare className="h-3 w-3 text-white" />}
-                          </div>
-                          <span className={answers[item.id] ? 'text-green-900 font-medium' : 'text-slate-600'}>
-                            {item.label}
-                          </span>
+                {/* Lista de Itens */}
+                {checklists.checklists?.map((checklist, checklistIdx) => (
+                  <Card key={checklistIdx} className="shadow-sm border-slate-200">
+                    <CardHeader className="bg-slate-50/50 border-b pb-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle2 className="w-5 h-5 text-green-600" />
+                          <CardTitle className="text-lg">{checklist.title}</CardTitle>
                         </div>
-                      ))}
+                        {checklist.category && (
+                          <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getCategoryColor(checklist.category)}`}>
+                            {checklist.category.toUpperCase()}
+                          </span>
+                        )}
+                      </div>
+                    </CardHeader>
+                    <CardContent className="pt-4">
+                      <div className="space-y-3">
+                        {checklist.items?.map((item, itemIdx) => {
+                          const itemKey = `${checklistIdx}-${itemIdx}`;
+                          const isChecked = checkedItems[itemKey] || false;
+                          
+                          return (
+                            <div 
+                              key={itemIdx}
+                              onClick={() => toggleCheckItem(checklistIdx, itemIdx)}
+                              className={`flex items-start gap-3 p-3 rounded-lg border transition-all cursor-pointer ${
+                                isChecked 
+                                  ? 'bg-green-50 border-green-200' 
+                                  : item.critical 
+                                    ? 'bg-white border-red-100 hover:border-red-300' 
+                                    : 'bg-white border-slate-100 hover:border-slate-300'
+                              }`}
+                            >
+                              <Checkbox
+                                checked={isChecked}
+                                onCheckedChange={() => toggleCheckItem(checklistIdx, itemIdx)}
+                                className="mt-1 data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600"
+                              />
+                              <div className="flex-1">
+                                <p className={`text-sm font-medium ${isChecked ? 'text-green-800' : 'text-slate-700'}`}>
+                                  {item.description}
+                                </p>
+                              </div>
+                              {item.critical && !isChecked && (
+                                <span className="px-2 py-0.5 bg-red-100 text-red-600 text-[10px] font-bold uppercase tracking-wide rounded">
+                                  Crítico
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
                     </CardContent>
                   </Card>
                 ))}
 
-                <Card className="border-blue-200 shadow-sm">
-                  <CardHeader className="pb-3 bg-blue-50/50">
-                    <CardTitle className="text-base flex items-center gap-2 text-blue-800">
-                      <MessageSquare className="h-5 w-5" />
-                      Observações Gerais
+                {/* Formulário de Finalização */}
+                <Card className="mt-8 border-2 border-slate-200 shadow-md">
+                  <CardHeader className="bg-slate-50">
+                    <CardTitle className="flex items-center gap-2 text-slate-800">
+                      <FileCheck className="w-5 h-5" />
+                      Finalizar Checklist
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="pt-4">
-                    <Textarea 
-                      placeholder="Descreva avarias, peças faltantes ou detalhes importantes..." 
-                      value={observation}
-                      onChange={(e) => setObservation(e.target.value)}
-                    />
-                  </CardContent>
-                </Card>
-
-                {/* --- SEÇÃO DE ENVIO --- */}
-                <Card className="bg-slate-900 text-white border-none shadow-xl">
                   <CardContent className="pt-6">
-                    <div className="grid md:grid-cols-[1fr_200px] gap-4 items-end">
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium text-slate-300 flex items-center gap-2">
-                          <Mail className="h-4 w-4" />
-                          Enviar Relatório para (E-mail do Gestor)
-                        </label>
-                        <Input 
-                          placeholder="gestor@tecnoloc.com.br" 
-                          className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500 focus-visible:ring-slate-500"
-                          value={emailTo}
-                          onChange={(e) => setEmailTo(e.target.value)}
-                        />
-                      </div>
-                      
+                    {!showFinalizationForm ? (
                       <Button 
-                        size="lg" 
-                        className="w-full bg-green-600 hover:bg-green-500 text-white font-bold transition-all"
-                        onClick={handleFinish}
-                        disabled={isSending}
+                        onClick={() => setShowFinalizationForm(true)}
+                        className="w-full bg-green-600 hover:bg-green-700 text-white text-lg h-12"
                       >
-                        {isSending ? (
-                          <>
-                            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                            Enviando...
-                          </>
-                        ) : (
-                          <>
-                            <Send className="mr-2 h-5 w-5" />
-                            Finalizar e Enviar
-                          </>
-                        )}
+                        <Send className="w-5 h-5 mr-2" />
+                        Concluir e Assinar
                       </Button>
-                    </div>
+                    ) : (
+                      <div className="space-y-4 animate-in fade-in">
+                        <div className="grid md:grid-cols-2 gap-4">
+                          <div>
+                            <Label>Patrimônio *</Label>
+                            <Input
+                              value={finalizationData.patrimonio}
+                              onChange={(e) => setFinalizationData({...finalizationData, patrimonio: e.target.value})}
+                              placeholder="Ex: PAT-001234"
+                            />
+                          </div>
+                          <div>
+                            <Label>Horímetro Atual *</Label>
+                            <Input
+                              value={finalizationData.horimetro}
+                              onChange={(e) => setFinalizationData({...finalizationData, horimetro: e.target.value})}
+                              placeholder="Ex: 1250 h"
+                              type="number"
+                            />
+                          </div>
+                          <div>
+                            <Label>Nome do Técnico *</Label>
+                            <Input
+                              value={finalizationData.technician_name}
+                              onChange={(e) => setFinalizationData({...finalizationData, technician_name: e.target.value})}
+                              placeholder="Seu nome"
+                            />
+                          </div>
+                          <div>
+                            <Label>E-mail do Supervisor</Label>
+                            <Input
+                              type="email"
+                              value={finalizationData.email}
+                              onChange={(e) => setFinalizationData({...finalizationData, email: e.target.value})}
+                              placeholder="supervisor@tecnoloc.com"
+                            />
+                          </div>
+                        </div>
+                        
+                        <div className="flex gap-3 justify-end pt-4">
+                          <Button 
+                            variant="outline" 
+                            onClick={() => setShowFinalizationForm(false)}
+                            disabled={isSending}
+                          >
+                            Cancelar
+                          </Button>
+                          <Button 
+                            onClick={handleFinalize}
+                            disabled={isSending}
+                            className="bg-green-600 hover:bg-green-700 text-white"
+                          >
+                            {isSending ? (
+                              <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Enviando...</>
+                            ) : (
+                              <><Send className="w-4 h-4 mr-2" /> Enviar Relatório</>
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
-                {/* --- FIM SEÇÃO DE ENVIO --- */}
-
               </div>
             )}
           </TabsContent>
 
-          <TabsContent value="manage" className="space-y-6">
-            <Card className="border-dashed border-2 border-slate-300 bg-slate-50/50">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Upload className="h-5 w-5 text-blue-600" />
-                  Importar Novo Modelo via IA
-                </CardTitle>
-                <CardDescription>
-                  Envie o PDF do manual. A IA irá ler e criar o formulário automaticamente.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center gap-4">
-                  <Input 
-                    type="file" 
-                    accept=".pdf" 
-                    onChange={(e) => setUploadFile(e.target.files[0])}
-                    className="bg-white"
-                  />
-                  <Button 
-                    onClick={handleUpload} 
-                    disabled={!uploadFile || isUploading}
-                    className="min-w-[140px]"
-                  >
-                    {isUploading ? (
-                      <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processando...</>
-                    ) : (
-                      <><Plus className="mr-2 h-4 w-4" /> Criar Modelo</>
-                    )}
-                  </Button>
-                </div>
-                
-                {isUploading && (
-                  <div className="p-4 bg-blue-50 text-blue-700 rounded-lg text-sm flex items-center gap-3">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <span>Analisando PDF...</span>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+          {/* TAB: GERENCIAR (Placeholder) */}
+          <TabsContent value="manage" className="space-y-8">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-semibold text-gray-900">Modelos de Checklist</h2>
+              <Button onClick={() => setShowUploadForm(!showUploadForm)} className="bg-orange-600 text-white">
+                <Upload className="w-4 h-4 mr-2" /> Novo Modelo
+              </Button>
+            </div>
 
-            <div className="grid gap-4">
-              <h3 className="font-semibold text-slate-900">Modelos Ativos</h3>
-              {templates.map(t => (
-                <div key={t.id} className="flex items-center justify-between p-4 bg-white border rounded-lg shadow-sm">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-slate-100 rounded-lg">
-                      <FileText className="h-5 w-5 text-slate-600" />
+            {showUploadForm && (
+              <Card className="mb-6 animate-in slide-in-from-top-2">
+                <CardHeader>
+                  <CardTitle>Cadastrar Novo Checklist (PDF)</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={handleUploadSubmit} className="space-y-4">
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div>
+                        <Label>Equipamento</Label>
+                        <Input placeholder="Nome do modelo" value={uploadFormData.equipment_name} onChange={e => setUploadFormData({...uploadFormData, equipment_name: e.target.value})} />
+                      </div>
+                      <div>
+                        <Label>Arquivo</Label>
+                         <Input type="file" disabled />
+                         <p className="text-xs text-slate-500 mt-1">Upload será ativado com Supabase Storage.</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-medium text-slate-900">{t.name}</p>
-                      <p className="text-xs text-slate-500">ID: {t.id}</p>
+                    <div className="flex justify-end gap-2">
+                        <Button type="button" variant="ghost" onClick={() => setShowUploadForm(false)}>Cancelar</Button>
+                        <Button type="submit">Salvar</Button>
                     </div>
-                  </div>
-                  <Button variant="ghost" size="icon" className="text-red-500 hover:text-red-600 hover:bg-red-50">
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
+                  </form>
+                </CardContent>
+              </Card>
+            )}
+
+            <div className="text-center py-12 bg-white rounded-lg border border-dashed border-slate-300">
+               <FileText className="w-12 h-12 mx-auto text-slate-300 mb-2" />
+               <p className="text-slate-500">Nenhum modelo customizado encontrado.</p>
+               <p className="text-xs text-slate-400">Use os modelos padrão na aba "Realizar Checklist"</p>
             </div>
           </TabsContent>
-
         </Tabs>
       </div>
     </div>
