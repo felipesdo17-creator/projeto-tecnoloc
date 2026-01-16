@@ -2,7 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 
 // Importando os arquivos que existem na sua pasta src
-import Home from './Home';
+import Home from './components/Home';
 import DiagnosticPage from './DiagnosticPage';
 import ChecklistPage from './ChecklistPage';
 import ManualsPage from './ManualsPage';
